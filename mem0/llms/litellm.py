@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Optional
 
 try:
@@ -16,7 +17,7 @@ class LiteLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o-mini"
+            self.config.model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini")
 
     def _parse_response(self, response, tools):
         """

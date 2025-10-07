@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
@@ -8,7 +9,13 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+
+# Initialize OpenAI client with extended timeout and environment-based configuration
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    timeout=300.0  # 5 minutes timeout for high-load scenarios
+)
 
 
 class MemoryCategories(BaseModel):
@@ -24,8 +31,9 @@ def get_categories_for_memory(memory: str) -> List[str]:
         ]
 
         # Let OpenAI handle the pydantic parsing directly
+        model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini")
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=model,
             messages=messages,
             response_format=MemoryCategories,
             temperature=0

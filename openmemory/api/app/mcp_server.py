@@ -51,6 +51,9 @@ def get_memory_client_safe():
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
+# Session storage to map session_id -> (user_id, client_name)
+_sessions = {}
+
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
 
@@ -358,8 +361,25 @@ async def handle_sse(request: Request):
     """Handle SSE connections for a specific user and client"""
     # Extract user_id and client_name from path parameters
     uid = request.path_params.get("user_id")
-    user_token = user_id_var.set(uid or "")
     client_name = request.path_params.get("client_name")
+    
+    # Debug: log all request info
+    logging.info(f"SSE GET request from user {uid}, client {client_name}")
+    logging.info(f"Query params: {dict(request.query_params)}")
+    logging.info(f"Headers: {dict(request.headers)}")
+    
+    # Store session info - generate a session_id from user and client if not provided
+    session_id = request.query_params.get("session_id")
+    if not session_id:
+        # Generate a deterministic session_id based on connection
+        import hashlib
+        session_id = hashlib.md5(f"{uid}:{client_name}".encode()).hexdigest()
+        logging.info(f"Generated session_id: {session_id}")
+    
+    _sessions[session_id] = (uid, client_name)
+    logging.info(f"Stored session {session_id} for user {uid} and client {client_name}")
+    
+    user_token = user_id_var.set(uid or "")
     client_token = client_name_var.set(client_name or "")
 
     try:
@@ -378,19 +398,33 @@ async def handle_sse(request: Request):
         # Clean up context variables
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
+        # Clean up session on disconnect
+        if session_id and session_id in _sessions:
+            del _sessions[session_id]
+            logging.info(f"Cleaned up session {session_id}")
 
 
 @mcp_router.post("/messages/")
-async def handle_get_message(request: Request):
-    return await handle_post_message(request)
-
-
-@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
-async def handle_post_message(request: Request):
-    return await handle_post_message(request)
-
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
+    # Extract session_id from query params to restore user context
+    session_id = request.query_params.get("session_id")
+    
+    uid = None
+    client_name = None
+    
+    if session_id and session_id in _sessions:
+        uid, client_name = _sessions[session_id]
+        logging.debug(f"Restored session {session_id}: user={uid}, client={client_name}")
+    else:
+        # Fallback to default values if session not found
+        uid = "default_user"
+        client_name = "cursor"
+        logging.warning(f"Session {session_id} not found, using defaults")
+    
+    user_token = user_id_var.set(uid)
+    client_token = client_name_var.set(client_name)
+    
     try:
         body = await request.body()
 
@@ -408,7 +442,34 @@ async def handle_post_message(request: Request):
         # Return a success response
         return {"status": "ok"}
     finally:
-        pass
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+
+
+@mcp_router.post("/{client_name}/sse/{user_id}/messages/")
+async def handle_post_message_with_params(request: Request):
+    """Handle POST messages with explicit URL parameters"""
+    uid = request.path_params.get("user_id")
+    client_name = request.path_params.get("client_name")
+    
+    user_token = user_id_var.set(uid or "")
+    client_token = client_name_var.set(client_name or "")
+    
+    try:
+        body = await request.body()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        async def send(message):
+            return {}
+
+        await sse.handle_post_message(request.scope, receive, send)
+
+        return {"status": "ok"}
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""

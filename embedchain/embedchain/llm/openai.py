@@ -53,7 +53,7 @@ class OpenAILlm(BaseLlm):
             messages.append(SystemMessage(content=config.system_prompt))
         messages.append(HumanMessage(content=prompt))
         kwargs = {
-            "model": config.model or "gpt-4o-mini",
+            "model": config.model or os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini"),
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
             "model_kwargs": config.model_kwargs or {},

@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Optional
 
 from embedchain.config import BaseLlmConfig
@@ -26,7 +27,7 @@ class AzureOpenAILlm(BaseLlm):
         chat = AzureChatOpenAI(
             deployment_name=config.deployment_name,
             openai_api_version=str(config.api_version) if config.api_version else "2024-02-01",
-            model_name=config.model or "gpt-4o-mini",
+            model_name=config.model or os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini"),
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             streaming=config.stream,

@@ -35,7 +35,7 @@ class OpenAILLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4o-mini"
+            self.config.model = os.getenv("DEFAULT_LLM_MODEL", "gpt-4o-mini")
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
@@ -43,12 +43,17 @@ class OpenAILLM(LLMBase):
                 base_url=self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
+                timeout=300.0,  # 5 minutes timeout for high-load scenarios
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            self.client = OpenAI(
+                api_key=api_key, 
+                base_url=base_url,
+                timeout=300.0,  # 5 minutes timeout for high-load scenarios
+            )
 
     def _parse_response(self, response, tools):
         """
