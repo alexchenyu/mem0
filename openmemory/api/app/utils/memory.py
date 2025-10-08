@@ -135,6 +135,34 @@ def reset_memory_client():
 
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
+    # Build LLM config
+    llm_config = {
+        "model": os.environ.get("DEFAULT_LLM_MODEL", "gpt-4o-mini"),
+        "temperature": 0.1,
+        "max_tokens": 2000,
+        "api_key": "env:OPENAI_API_KEY"
+    }
+
+    # Add base URL if provided
+    if os.environ.get("OPENAI_BASE_URL"):
+        llm_config["openai_base_url"] = os.environ.get("OPENAI_BASE_URL")
+
+    # Build Embedder config
+    embedder_config = {
+        "model": os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
+        "api_key": "env:EMBEDDING_API_KEY"
+    }
+
+    # Add embedding base URL if provided (defaults to OPENAI_BASE_URL if not set)
+    embedding_base_url = os.environ.get("EMBEDDING_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
+    if embedding_base_url:
+        embedder_config["openai_base_url"] = embedding_base_url
+
+    # Get embedding dimensions for vector store configuration
+    # Note: This is NOT passed to the embedder (patch removes it from API calls)
+    # It's only used for vector store configuration
+    embedding_dims = int(os.environ.get("EMBEDDING_MODEL_DIMS", "1536"))
+
     # Detect vector store based on environment variables
     vector_store_config = {
         "collection_name": "openmemory",
@@ -232,6 +260,7 @@ def get_default_memory_config():
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "port": 6333,
+            "embedding_model_dims": embedding_dims,
         })
     
     print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
@@ -243,19 +272,11 @@ def get_default_memory_config():
         },
         "llm": {
             "provider": "openai",
-            "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.1,
-                "max_tokens": 2000,
-                "api_key": "env:OPENAI_API_KEY"
-            }
+            "config": llm_config
         },
         "embedder": {
             "provider": "openai",
-            "config": {
-                "model": "text-embedding-3-small",
-                "api_key": "env:OPENAI_API_KEY"
-            }
+            "config": embedder_config
         },
         "version": "v1.1"
     }

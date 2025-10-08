@@ -42,8 +42,10 @@ class OpenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
+        # Remove dimensions parameter for litellm compatibility
+        # litellm doesn't support dimensions parameter and will throw 400 error
         return (
-            self.client.embeddings.create(input=[text], model=self.config.model, dimensions=self.config.embedding_dims)
+            self.client.embeddings.create(input=[text], model=self.config.model)
             .data[0]
             .embedding
         )

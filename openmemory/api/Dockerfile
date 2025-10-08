@@ -4,8 +4,14 @@ LABEL org.opencontainers.image.name="mem0/openmemory-mcp"
 
 WORKDIR /usr/src/openmemory
 
+# Copy and install local modified mem0 first
+COPY ../../mem0 /tmp/mem0
+RUN cd /tmp/mem0 && pip install -e .
+
+# Install other requirements (excluding mem0ai)
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN grep -v "^mem0ai" requirements.txt > requirements_no_mem0.txt && \
+    pip install -r requirements_no_mem0.txt
 
 COPY config.json .
 COPY . .

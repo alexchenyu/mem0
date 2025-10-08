@@ -134,7 +134,16 @@ class OpenAILLM(LLMBase):
             for param in openai_specific_generation_params:
                 if hasattr(self.config, param):
                     params[param] = getattr(self.config, param)
-            
+
+        # Add chat_template_kwargs for GLM-4.6-FP8 to disable thinking mode
+        # This reduces token usage significantly for reasoning models
+        if os.getenv("DISABLE_THINKING", "false").lower() == "true":
+            params["extra_body"] = {
+                "chat_template_kwargs": {
+                    "enable_thinking": False
+                }
+            }
+
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
