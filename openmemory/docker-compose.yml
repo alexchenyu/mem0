@@ -21,7 +21,7 @@ services:
       - ./api:/usr/src/openmemory
       - ../mem0:/usr/local/lib/python3.12/site-packages/mem0:ro
     command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4 --timeout-keep-alive 300"
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 4 --timeout-keep-alive 300"
   openmemory-ui:
     build:
       context: ui/
