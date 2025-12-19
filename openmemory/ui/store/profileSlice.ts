@@ -1,5 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+// Helper to get initial user ID from localStorage or env
+const getInitialUserId = () => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('openmemory_user_id');
+    if (stored) return stored;
+  }
+  return process.env.NEXT_PUBLIC_USER_ID || 'user';
+};
+
 interface ProfileState {
   userId: string;
   totalMemories: number;
@@ -10,7 +19,7 @@ interface ProfileState {
 }
 
 const initialState: ProfileState = {
-  userId: process.env.NEXT_PUBLIC_USER_ID || 'user',
+  userId: getInitialUserId(),
   totalMemories: 0,
   totalApps: 0,
   status: 'idle',
@@ -24,6 +33,10 @@ const profileSlice = createSlice({
   reducers: {
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
+      // Persist to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('openmemory_user_id', action.payload);
+      }
     },
     setProfileLoading: (state) => {
       state.status = 'loading';
@@ -36,7 +49,7 @@ const profileSlice = createSlice({
     resetProfileState: (state) => {
       state.status = 'idle';
       state.error = null;
-      state.userId = process.env.NEXT_PUBLIC_USER_ID || 'user';
+      state.userId = getInitialUserId();
     },
     setTotalMemories: (state, action: PayloadAction<number>) => {
       state.totalMemories = action.payload;

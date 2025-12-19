@@ -13,6 +13,8 @@ import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { Settings } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
+import { UserSwitcher } from "@/components/UserSwitcher";
+import { UserIdListener } from "@/components/UserIdListener";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -92,6 +94,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60">
+      <UserIdListener />
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.svg" alt="OpenMemory" width={26} height={26} />
@@ -148,6 +151,7 @@ export function Navbar() {
           </Link>
         </div>
         <div className="flex items-center gap-4">
+          <UserSwitcher />
           <Button
             onClick={handleRefresh}
             variant="outline"
