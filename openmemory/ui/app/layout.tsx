@@ -6,6 +6,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Providers } from "./providers";
 
+// 强制禁用缓存，确保 UserSwitcher 始终是最新的
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata = {
   title: "OpenMemory - Developer Dashboard",
   description: "Manage your OpenMemory integration and stored memories",
