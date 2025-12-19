@@ -613,7 +613,8 @@ async def filter_memories(
 
     # Add eager loading for categories and make the query distinct
     query = query.options(
-        joinedload(Memory.categories)
+        joinedload(Memory.categories),
+        joinedload(Memory.app)
     ).distinct(Memory.id)
 
     # Use fastapi-pagination's paginate function
