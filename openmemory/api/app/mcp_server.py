@@ -433,36 +433,35 @@ async def delete_all_memories() -> str:
 @mcp_router.get("/{client_name}/sse/{user_id}")
 async def handle_sse(request: Request):
     """Handle SSE connections for a specific user and client"""
+    from starlette.responses import Response
+    
     # Extract user_id and client_name from path parameters
     uid = request.path_params.get("user_id")
     client_name = request.path_params.get("client_name")
     
-    # Debug: log all request info
     logging.info(f"SSE GET request from user {uid}, client {client_name}")
-    logging.info(f"Query params: {dict(request.query_params)}")
-    logging.info(f"Headers: {dict(request.headers)}")
-    
-    # Store session info - generate a session_id from user and client if not provided
-    session_id = request.query_params.get("session_id")
-    if not session_id:
-        # Generate a deterministic session_id based on connection
-        import hashlib
-        session_id = hashlib.md5(f"{uid}:{client_name}".encode()).hexdigest()
-        logging.info(f"Generated session_id: {session_id}")
-    
-    _sessions[session_id] = (uid, client_name)
-    logging.info(f"Stored session {session_id} for user {uid} and client {client_name}")
     
     user_token = user_id_var.set(uid or "")
     client_token = client_name_var.set(client_name or "")
+    
+    # Track SDK's session_id for cleanup
+    sdk_session_id = None
 
     try:
-        # Handle SSE connection
+        # Handle SSE connection - SDK generates its own session_id internally
         async with sse.connect_sse(
             request.scope,
             request.receive,
             request._send,
         ) as (read_stream, write_stream):
+            # Get SDK's session_id from the internal registry
+            # The most recently added key is our session
+            if sse._read_stream_writers:
+                sdk_session_id = list(sse._read_stream_writers.keys())[-1]
+                # Store mapping: SDK's session_id (hex) -> (user_id, client_name)
+                _sessions[sdk_session_id.hex] = (uid, client_name)
+                logging.info(f"Stored session {sdk_session_id.hex} for user {uid}, client {client_name}")
+            
             await mcp._mcp_server.run(
                 read_stream,
                 write_stream,
@@ -473,14 +472,18 @@ async def handle_sse(request: Request):
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)
         # Clean up session on disconnect
-        if session_id and session_id in _sessions:
-            del _sessions[session_id]
-            logging.info(f"Cleaned up session {session_id}")
+        if sdk_session_id and sdk_session_id.hex in _sessions:
+            del _sessions[sdk_session_id.hex]
+            logging.info(f"Cleaned up session {sdk_session_id.hex}")
+    
+    return Response()
 
 
 @mcp_router.post("/messages/")
 async def handle_post_message(request: Request):
     """Handle POST messages for SSE"""
+    from starlette.responses import Response
+    
     # Extract session_id from query params to restore user context
     session_id = request.query_params.get("session_id")
     
@@ -499,6 +502,9 @@ async def handle_post_message(request: Request):
     user_token = user_id_var.set(uid)
     client_token = client_name_var.set(client_name)
     
+    # Capture the response from SDK
+    response_holder = {"status": 202, "body": b"Accepted"}
+    
     try:
         body = await request.body()
 
@@ -506,15 +512,18 @@ async def handle_post_message(request: Request):
         async def receive():
             return {"type": "http.request", "body": body, "more_body": False}
 
-        # Create a simple send function that does nothing
+        # Capture the response from SDK's handle_post_message
         async def send(message):
-            return {}
+            if message.get("type") == "http.response.start":
+                response_holder["status"] = message.get("status", 202)
+            elif message.get("type") == "http.response.body":
+                response_holder["body"] = message.get("body", b"")
 
-        # Call handle_post_message with the correct arguments
+        # Let SDK handle the message - this routes it to the correct SSE stream
         await sse.handle_post_message(request.scope, receive, send)
 
-        # Return a success response
-        return {"status": "ok"}
+        # Return the response from SDK
+        return Response(content=response_holder["body"], status_code=response_holder["status"])
     finally:
         user_id_var.reset(user_token)
         client_name_var.reset(client_token)

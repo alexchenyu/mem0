@@ -106,6 +106,40 @@ npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-
 
 Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
 
+### Optimizing MCP Connection for Cursor
+
+For faster connection speeds and better stability in Cursor, it is recommended to use `supergateway` directly instead of `npx`.
+
+1. **Install supergateway globally:**
+   ```bash
+   npm install -g supergateway
+   ```
+
+2. **Configure Cursor (`mcp.json`):**
+   Update your MCP configuration to use the global `supergateway` command:
+   ```json
+   {
+     "mcpServers": {
+       "openmemory-local": {
+         "command": "supergateway",
+         "args": [
+           "--sse",
+           "http://localhost:8765/mcp/cursor/sse/default_user"
+         ]
+       }
+     }
+   }
+   ```
+
+   **Note:** Ensure your backend Docker container is running with `workers: 1` in `docker-compose.yml`. This is critical for SSE session stability when using proxies like supergateway.
+
+### Pro Tips for Mem0 Usage
+
+When adding memories to Mem0 (e.g., via the `openmemory-local` tool), please note:
+- **Be Explicit**: Mem0 is designed to capture *user preferences and facts*. If you provide a generic statement like "Docker requires restart", Mem0 might ignore it.
+- **Use "User" Context**: To force Mem0 to remember a fact or rule, phrase it as a user request or preference.
+  - ❌ "Docker needs a restart." (Might be ignored)
+  - ✅ "User requests to remember this DevOps rule: Docker needs a restart."
 
 ## Project Structure
 
