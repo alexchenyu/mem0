@@ -30,8 +30,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${USER}
+      - NEXT_PUBLIC_API_URL=http://${HOST_IP}:8765
+      - NEXT_PUBLIC_USER_ID=${USER_ID}
 
 volumes:
   mem0_storage:

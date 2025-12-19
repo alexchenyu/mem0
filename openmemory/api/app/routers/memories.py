@@ -162,17 +162,23 @@ async def list_memories(
     # Get paginated results
     paginated_results = sqlalchemy_paginate(query, params)
 
-    # Filter results based on permissions
+    # Filter results based on permissions and convert to MemoryResponse
+    from app.schemas import MemoryResponse
+    from fastapi_pagination import Page
     filtered_items = []
     for item in paginated_results.items:
         if check_memory_access_permissions(db, item, app_id):
-            filtered_items.append(item)
+            memory_response = MemoryResponse.model_validate(item)
+            filtered_items.append(memory_response)
 
-    # Update paginated results with filtered items
-    paginated_results.items = filtered_items
-    paginated_results.total = len(filtered_items)
-
-    return paginated_results
+    # Create a new Page object with filtered results
+    return Page(
+        items=filtered_items,
+        total=len(filtered_items),
+        page=paginated_results.page,
+        size=paginated_results.size,
+        pages=max(1, (len(filtered_items) + paginated_results.size - 1) // paginated_results.size)
+    )
 
 
 # Get all categories
